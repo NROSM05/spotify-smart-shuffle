@@ -133,25 +133,28 @@ try:
 
         except SpotifyException as error:
             if error.http_status == 429:
-                retry_after = error.headers.get("Retry-After", 30) if error.headers else 30
+                retry_after = (
+                    error.headers.get("Retry-After", 30)
+                    if error.headers else 30
+                )
 
-            try:
-                wait_seconds = max(1, int(retry_after))
-            except (ValueError, TypeError):
-                wait_seconds = 30
+                try:
+                    wait_seconds = max(1, int(retry_after))
+                except (ValueError, TypeError):
+                    wait_seconds = 30
 
                 print(
                     f"Spotify rate limit reached. Waiting {wait_seconds} seconds.",
                     flush=True
                 )
-            time.sleep(wait_seconds)
-        else:
-            print(f"Spotify API error: {error}", flush=True)
-            time.sleep(30)
+                time.sleep(wait_seconds)
+            else:
+                print(f"Spotify API error: {error}", flush=True)
+                time.sleep(30)
 
-except requests.exceptions.RequestException as error:
-    print(f"Network error: {error}", flush=True)
-    time.sleep(30)
+        except requests.exceptions.RequestException as error:
+            print(f"Network error: {error}", flush=True)
+            time.sleep(30)
 
 except KeyboardInterrupt:
     print("\nSmart Shuffle stopped.")
