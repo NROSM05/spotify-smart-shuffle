@@ -1,0 +1,21 @@
+
+# Spotify authentication tokens
+.cache
+.cache-*
+*.token
+token.json
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE and OS
+.vscode/
+.DS_Store
+Thumbs.db
