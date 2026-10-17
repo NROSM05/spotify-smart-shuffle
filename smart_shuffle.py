@@ -74,6 +74,7 @@ spotify = spotipy.Spotify(auth_manager=auth_manager)
 
 last_seen_song = None
 queued_for_current_song = False
+last_heartbeat = 0
 
 print("Smart Shuffle is running!", flush=True)
 
@@ -81,6 +82,24 @@ try:
     while True:
         try:
             playback = spotify.current_playback()
+            now = time.monotonic()
+
+            if now - last_heartbeat >= 60:
+                if playback is None:
+                    status = "No playback session reported"
+                else:
+                    device = playback.get("device") or {}
+                    track = playback.get("item") or {}
+
+                    status = (
+                        f"playing={playback.get('is_playing')}, "
+                        f"track={track.get('name', 'Unknown')}, "
+                        f"device={device.get('name', 'Unknown')}, "
+                        f"device_id={device.get('id', 'None')}"
+                    )
+
+                print(f"HEARTBEAT: {status}", flush=True)
+                last_heartbeat = now
 
             if playback and playback.get("is_playing"):
                 song = playback.get("item")
