@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 import time
@@ -21,18 +22,54 @@ for chain in SONG_CHAINS:
     for current_song, next_song in zip(chain, chain[1:]):
         SONG_PAIRS[current_song] = next_song
 
-spotify = spotipy.Spotify(
-    auth_manager=SpotifyPKCE(
+from spotipy.cache_handler import CacheHandler
+
+class CloudTokenCache(CacheHandler):
+    def __init__(self):
+        self.token_info = {
+            "refresh_token": os.environ["SPOTIFY_REFRESH_TOKEN"],
+            "access_token": "",
+            "expires_at": 0,
+            "token_type": "Bearer",
+            "scope": (
+                "user-read-currently-playing "
+                "user-read-playback-state "
+                "user-modify-playback-state"
+            ),
+        }
+
+    def get_cached_token(self):
+        return self.token_info
+
+    def save_token_to_cache(self, token_info):
+        self.token_info = token_info
+
+
+scope = (
+    "user-read-currently-playing "
+    "user-read-playback-state "
+    "user-modify-playback-state"
+)
+
+cloud_mode = bool(os.getenv("SPOTIFY_REFRESH_TOKEN"))
+
+if cloud_mode:
+    auth_manager = SpotifyPKCE(
+        client_id=os.environ["SPOTIFY_CLIENT_ID"],
+        redirect_uri=REDIRECT_URI,
+        scope=scope,
+        cache_handler=CloudTokenCache(),
+        open_browser=False,
+    )
+else:
+    auth_manager = SpotifyPKCE(
         client_id=CLIENT_ID,
         redirect_uri=REDIRECT_URI,
-        scope=(
-            "user-read-currently-playing "
-            "user-read-playback-state "
-            "user-modify-playback-state"
-        ),
-        open_browser=True
+        scope=scope,
+        open_browser=True,
     )
-)
+
+spotify = spotipy.Spotify(auth_manager=auth_manager)
 
 last_seen_song = None
 queued_for_current_song = False
