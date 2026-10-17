@@ -5,6 +5,7 @@ import time
 import spotipy
 from spotipy.oauth2 import SpotifyPKCE
 from spotipy.exceptions import SpotifyException
+import requests
 
 CLIENT_ID = "7400bdea10c4483f8dde1151413675af"
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
@@ -131,8 +132,26 @@ try:
             time.sleep(10)
 
         except SpotifyException as error:
-            print(f"Spotify error: {error}", flush=True)
+            if error.http_status == 429:
+                retry_after = error.headers.get("Retry-After", 30) if error.headers else 30
+
+            try:
+                wait_seconds = max(1, int(retry_after))
+            except (ValueError, TypeError):
+                wait_seconds = 30
+
+                print(
+                    f"Spotify rate limit reached. Waiting {wait_seconds} seconds.",
+                    flush=True
+                )
+            time.sleep(wait_seconds)
+        else:
+            print(f"Spotify API error: {error}", flush=True)
             time.sleep(30)
+
+except requests.exceptions.RequestException as error:
+    print(f"Network error: {error}", flush=True)
+    time.sleep(30)
 
 except KeyboardInterrupt:
     print("\nSmart Shuffle stopped.")
