@@ -99,16 +99,30 @@ try:
                     ):
                         next_song = SONG_PAIRS[song_id]
 
-                        spotify.add_to_queue(
-                            f"spotify:track:{next_song}"
+                        # Check Spotify's queue before adding the next track.
+                        queue_data = spotify.queue()
+                        upcoming = queue_data.get("queue", [])
+
+                        already_queued = bool(
+                            upcoming and upcoming[0].get("id") == next_song
                         )
+
+                        if already_queued:
+                            print(
+                                f"{song_name}: Next song already queued. Skipping!",
+                                flush=True
+                            )           
+                        else:
+                            spotify.add_to_queue(
+                                f"spotify:track:{next_song}"
+                            )
+
+                            print(
+                                f"Queued next song after {song_name}!",
+                                flush=True
+                            )
 
                         queued_for_current_song = True
-
-                        print(
-                            f"Queued next song after {song_name}!",
-                            flush=True
-                        )
 
             else:
                 last_seen_song = None
