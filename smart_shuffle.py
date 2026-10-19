@@ -1,3 +1,4 @@
+
 import os
 import json
 from pathlib import Path
@@ -24,6 +25,7 @@ for chain in SONG_CHAINS:
         SONG_PAIRS[current_song] = next_song
 
 from spotipy.cache_handler import CacheHandler
+
 
 class CloudTokenCache(CacheHandler):
     def __init__(self):
@@ -84,9 +86,30 @@ try:
             playback = spotify.current_playback()
             now = time.monotonic()
 
+            # Print a diagnostic heartbeat approximately every 60 seconds.
             if now - last_heartbeat >= 60:
                 if playback is None:
                     status = "No playback session reported"
+
+                    # Check whether Spotify still recognizes any devices
+                    # when the playback endpoint returns no session.
+                    try:
+                        devices = spotify.devices().get("devices", [])
+
+                        if devices:
+                            device_status = ", ".join(
+                                f"{device.get('name', 'Unknown')} "
+                                f"(active={device.get('is_active')})"
+                                for device in devices
+                            )
+                        else:
+                            device_status = "No devices reported"
+
+                        status += f" | Devices: {device_status}"
+
+                    except Exception as error:
+                        status += f" | Device check failed: {error}"
+
                 else:
                     device = playback.get("device") or {}
                     track = playback.get("item") or {}
@@ -131,7 +154,7 @@ try:
                             print(
                                 f"{song_name}: Next song already queued. Skipping!",
                                 flush=True
-                            )           
+                            )
                         else:
                             spotify.add_to_queue(
                                 f"spotify:track:{next_song}"
