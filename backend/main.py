@@ -1,3 +1,10 @@
+from fastapi import Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from backend.database import get_db
+from backend.models import User
+
 import os
 import secrets
 
@@ -6,8 +13,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from backend.spotify_service import create_spotify_auth
-
+from backend.spotify_service import create_spotify_auth, get_spotify_user
 app = FastAPI(
     title="Smart Shuffle API",
     description="Backend API for Smart Shuffle 2.0",
@@ -50,7 +56,12 @@ def spotify_login(request: Request):
     return RedirectResponse(url=authorization_url)
 
 @app.get("/auth/callback")
-def spotify_callback(request: Request, code: str = None, state: str = None):
+def spotify_callback(
+    request: Request,
+    code: str = None,
+    state: str = None,
+    db: Session = Depends(get_db),
+):
     expected_state = request.session.pop("spotify_oauth_state", None)
 
     if not expected_state or not state or not secrets.compare_digest(
@@ -82,6 +93,22 @@ def spotify_callback(request: Request, code: str = None, state: str = None):
     auth.code_challenge = code_challenge
 
     token_info = auth.get_access_token(code, check_cache=False)
+    spotify_user = get_spotify_user(token_info)
+
+    user = db.scalar(
+        select(User).where(User.spotify_id == spotify_user["id"])
+    )
+
+    if user is None:
+        user = User(
+            spotify_id=spotify_user["id"],
+            display_name=spotify_user.get("display_name"),
+        )
+        db.add(user)
+    else:
+        user.display_name = spotify_user.get("display_name")
+
+    db.commit()
 
     # Temporary local test only.
     # Never return access tokens to the browser.
@@ -90,4 +117,8 @@ def spotify_callback(request: Request, code: str = None, state: str = None):
     return {
         "message": "Spotify connected successfully!",
         "connected": True,
+        "user": {
+            "id": spotify_user["id"],
+            "display_name": spotify_user.get("display_name"),
+        },
     }

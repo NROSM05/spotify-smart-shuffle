@@ -20,3 +20,7 @@ def create_spotify_auth(redirect_uri: str):
         scope=SPOTIFY_SCOPES,
         open_browser=False,
     )
+
+def get_spotify_user(access_token: str):
+    spotify = spotipy.Spotify(auth=access_token)
+    return spotify.current_user()
