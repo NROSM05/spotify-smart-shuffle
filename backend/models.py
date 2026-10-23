@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import LargeBinary
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -43,3 +43,14 @@ class Chain(Base):
     tracks_json: Mapped[str] = mapped_column(Text)
 
     user: Mapped["User"] = relationship(back_populates="chains")
+
+
+class ServerSession(Base):
+    __tablename__ = "server_sessions"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )

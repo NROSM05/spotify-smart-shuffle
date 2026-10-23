@@ -10,11 +10,11 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from starlette.middleware.sessions import SessionMiddleware
-
+from starlette_session import SessionMiddleware
 from backend.database import get_db
 from backend.models import Chain, User
 from backend.spotify_service import create_spotify_auth, get_spotify_user
+from backend.session_backend import PostgresSessionBackend
 
 
 load_dotenv()
@@ -25,11 +25,16 @@ app = FastAPI(
     version="2.0.0",
 )
 
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ["SESSION_SECRET_KEY"],
+    cookie_name="smart_shuffle_session",
+    max_age=14 * 24 * 60 * 60,
     same_site="lax",
     https_only=False,  # Local development only
+    backend_type="redis",  # Selects server-side session mode
+    custom_session_backend=PostgresSessionBackend(),
 )
 
 REDIRECT_URI = "http://127.0.0.1:8001/auth/callback"
