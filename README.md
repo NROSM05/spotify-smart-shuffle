@@ -12,6 +12,13 @@ Spotify Smart Shuffle solves this by automatically detecting when a configured s
 
 This allows listeners to enjoy shuffled music while preserving their favorite transitions.
 
+## 🎬 Demo
+
+Watch Smart Shuffle automatically detect a song, queue its
+transition track, and play the songs seamlessly.
+
+▶️ [Watch Smart Shuffle in Action](assets/smart-shuffle-demo.mp4)
+
 ## Features
 
 - **Automatic playback monitoring** — Checks Spotify playback to detect the currently playing track.
