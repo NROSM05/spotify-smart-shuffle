@@ -14,6 +14,17 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     spotify_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    access_token_encrypted: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+
+    refresh_token_encrypted: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+
+    token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

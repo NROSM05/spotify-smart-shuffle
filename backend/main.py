@@ -1,4 +1,5 @@
-
+from datetime import datetime, timezone
+from backend.security import encrypt_token
 import json
 import os
 import secrets
@@ -110,6 +111,14 @@ def spotify_callback(
     auth.code_challenge = code_challenge
 
     access_token = auth.get_access_token(code, check_cache=False)
+
+    token_info = getattr(auth.cache_handler, "token_info", None)
+    if not token_info or not token_info.get("refresh_token"):
+        raise HTTPException(
+            status_code=500,
+            detail="Spotify token information is incomplete.",
+    )
+
     spotify_user = get_spotify_user(access_token)
 
     user = db.scalar(
@@ -125,6 +134,12 @@ def spotify_callback(
     else:
         user.display_name = spotify_user.get("display_name")
 
+    user.access_token_encrypted = encrypt_token(token_info["access_token"])
+    user.refresh_token_encrypted = encrypt_token(token_info["refresh_token"])
+    user.token_expires_at = datetime.fromtimestamp(
+        token_info["expires_at"],
+        tz=timezone.utc,
+    )
     db.commit()
     db.refresh(user)
 
