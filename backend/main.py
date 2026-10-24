@@ -21,31 +21,24 @@ from backend.session_backend import PostgresSessionBackend
 
 import asyncio
 from contextlib import asynccontextmanager
-from backend.playback_monitor import (
-    monitor_user_playback,
-    get_monitorable_user_ids,
-)
+from backend.playback_monitor import manage_playback_monitors
 
 load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    user_ids = await asyncio.to_thread(get_monitorable_user_ids)
-
-    monitor_tasks = [
-        asyncio.create_task(monitor_user_playback(user_id))
-        for user_id in user_ids
-    ]
-
-    print(f"Started playback monitors for {len(monitor_tasks)} users")
+    manager_task = asyncio.create_task(manage_playback_monitors())
 
     try:
         yield
     finally:
-        for task in monitor_tasks:
-            task.cancel()
+        manager_task.cancel()
+        try:
+            await manager_task
+        except asyncio.CancelledError:
+            pass
 
-        await asyncio.gather(*monitor_tasks, return_exceptions=True)
+
 app = FastAPI(
     title="Smart Shuffle API",
     description="Backend API for Smart Shuffle 2.0",
@@ -204,6 +197,31 @@ def spotify_logout(request: Request):
         "connected": False,
     }
 
+@app.post("/auth/disconnect")
+def spotify_disconnect(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    user = db.get(User, current_user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    user.access_token_encrypted = None
+    user.refresh_token_encrypted = None
+    user.token_expires_at = None
+
+    db.commit()
+    request.session.clear()
+
+    return {
+        "message": "Spotify disconnected successfully!",
+        "connected": False,
+    }
 
 @app.get("/users/{user_id}/chains")
 def get_user_chains(

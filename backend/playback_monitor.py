@@ -54,3 +54,37 @@ def get_monitorable_user_ids():
             User.refresh_token_encrypted.is_not(None),
         )
         return list(db.scalars(statement).all())
+
+async def manage_playback_monitors():
+    monitor_tasks = {}
+
+    try:
+        while True:
+            user_ids = await asyncio.to_thread(get_monitorable_user_ids)
+            active_user_ids = set(user_ids)
+
+            for user_id in list(monitor_tasks):
+                if user_id not in active_user_ids:
+                    task = monitor_tasks.pop(user_id)
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                    last_processed_tracks.pop(user_id, None)
+                    print(f"Stopped playback monitor for user {user_id}")
+
+            for user_id in user_ids:
+                if user_id not in monitor_tasks:
+                    monitor_tasks[user_id] = asyncio.create_task(
+                        monitor_user_playback(user_id)
+                    )
+                    print(f"Started playback monitor for user {user_id}")
+
+            await asyncio.sleep(10)
+
+    finally:
+        for task in monitor_tasks.values():
+            task.cancel()
+
+        await asyncio.gather(
+            *monitor_tasks.values(),
+            return_exceptions=True,
+        )
