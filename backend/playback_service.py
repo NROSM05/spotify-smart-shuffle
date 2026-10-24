@@ -58,8 +58,9 @@ def find_matching_chain(user_id: int, track_id: str, db):
 
     return None
 
-def process_current_track(user, db):
-    track = get_current_track(user, db)
+def process_current_track(user, db, track=None):
+    if track is None:
+        track = get_current_track(user, db)
 
     if not track or not track["is_playing"]:
         return {"status": "not_playing"}

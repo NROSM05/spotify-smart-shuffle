@@ -7,7 +7,8 @@ from backend.playback_service import get_current_track, process_current_track
 from sqlalchemy import select
 
 
-last_processed_tracks = {}
+last_seen_progress = {}
+last_seen_track_ids = {}
 
 
 async def monitor_user_playback(user_id: int):
@@ -29,22 +30,37 @@ def process_user_playback(user_id: int):
 
         track = get_current_track(user, db)
 
+        if track and track["is_playing"]:
+            previous_progress = last_seen_progress.get(user_id)
+            current_progress = track["progress_ms"]
+
+            previous_track_id = last_seen_track_ids.get(user_id)
+            current_track_id = track["id"]
+
+            track_changed = previous_track_id != current_track_id
+
+            last_seen_track_ids[user_id] = current_track_id
+
+            playback_restarted = (
+                not track_changed
+                and previous_progress is not None
+                and current_progress < previous_progress - 3000
+            )
+
+            if playback_restarted:
+                print(f"User {user_id}: playback restarted")
+            last_seen_progress[user_id] = current_progress
+
         if not track or not track["is_playing"]:
-            last_processed_tracks.pop(user_id, None)
+            last_seen_progress.pop(user_id, None)
+            last_seen_track_ids.pop(user_id, None)
             return
 
-        playback_key = (
-            track["id"],
-            track.get("timestamp"),
-        )
-
-        if last_processed_tracks.get(user_id) == playback_key:
+        if not track_changed and not playback_restarted:
             return
-
-        result = process_current_track(user, db)
+        result = process_current_track(user, db, track=track)
 
         if result["status"] in ("queued", "already_queued"):
-            last_processed_tracks[user_id] = playback_key
             print(f"User {user_id}: {result}")
 
 def get_monitorable_user_ids():
@@ -68,7 +84,8 @@ async def manage_playback_monitors():
                     task = monitor_tasks.pop(user_id)
                     task.cancel()
                     await asyncio.gather(task, return_exceptions=True)
-                    last_processed_tracks.pop(user_id, None)
+                    last_seen_progress.pop(user_id, None)
+                    last_seen_track_ids.pop(user_id, None)
                     print(f"Stopped playback monitor for user {user_id}")
 
             for user_id in user_ids:
