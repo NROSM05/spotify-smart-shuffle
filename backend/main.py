@@ -161,6 +161,22 @@ def spotify_callback(
     }
 
 
+@app.post("/auth/logout")
+def spotify_logout(request: Request):
+    if not request.session.get("user_id"):
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated.",
+        )
+
+    request.session.clear()
+
+    return {
+        "message": "Logged out successfully!",
+        "connected": False,
+    }
+
+
 @app.get("/users/{user_id}/chains")
 def get_user_chains(
     user_id: int,

@@ -20,7 +20,7 @@ class PostgresSessionBackend(ISessionBackend):
                 )
 
                 if session is None:
-                    return None
+                    return {}
 
                 expires_at = session.expires_at
                 if expires_at.tzinfo is None:
@@ -29,7 +29,7 @@ class PostgresSessionBackend(ISessionBackend):
                 if expires_at <= datetime.now(timezone.utc):
                     db.delete(session)
                     db.commit()
-                    return None
+                    return {}
 
                 return session.data
 
