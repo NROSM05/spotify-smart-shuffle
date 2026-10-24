@@ -4,6 +4,8 @@ from backend.database import SessionLocal
 from backend.models import User
 from backend.playback_service import get_current_track, process_current_track
 
+from sqlalchemy import select
+
 
 last_processed_tracks = {}
 
@@ -44,3 +46,11 @@ def process_user_playback(user_id: int):
         if result["status"] in ("queued", "already_queued"):
             last_processed_tracks[user_id] = playback_key
             print(f"User {user_id}: {result}")
+
+def get_monitorable_user_ids():
+    with SessionLocal() as db:
+        statement = select(User.id).where(
+            User.access_token_encrypted.is_not(None),
+            User.refresh_token_encrypted.is_not(None),
+        )
+        return list(db.scalars(statement).all())

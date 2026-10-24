@@ -21,24 +21,31 @@ from backend.session_backend import PostgresSessionBackend
 
 import asyncio
 from contextlib import asynccontextmanager
-from backend.playback_monitor import monitor_user_playback
-
+from backend.playback_monitor import (
+    monitor_user_playback,
+    get_monitorable_user_ids,
+)
 
 load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    monitor_task = asyncio.create_task(monitor_user_playback(1))
+    user_ids = await asyncio.to_thread(get_monitorable_user_ids)
+
+    monitor_tasks = [
+        asyncio.create_task(monitor_user_playback(user_id))
+        for user_id in user_ids
+    ]
+
+    print(f"Started playback monitors for {len(monitor_tasks)} users")
 
     try:
         yield
     finally:
-        monitor_task.cancel()
-        try:
-            await monitor_task
-        except asyncio.CancelledError:
-            pass
+        for task in monitor_tasks:
+            task.cancel()
 
+        await asyncio.gather(*monitor_tasks, return_exceptions=True)
 app = FastAPI(
     title="Smart Shuffle API",
     description="Backend API for Smart Shuffle 2.0",
