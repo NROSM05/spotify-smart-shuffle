@@ -1,0 +1,46 @@
+import asyncio
+
+from backend.database import SessionLocal
+from backend.models import User
+from backend.playback_service import get_current_track, process_current_track
+
+
+last_processed_tracks = {}
+
+
+async def monitor_user_playback(user_id: int):
+    while True:
+        try:
+            await asyncio.to_thread(process_user_playback, user_id)
+        except Exception as exc:
+            print(f"Playback monitor error for user {user_id}: {exc}")
+
+        await asyncio.sleep(5)
+
+
+def process_user_playback(user_id: int):
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+
+        if user is None:
+            return
+
+        track = get_current_track(user, db)
+
+        if not track or not track["is_playing"]:
+            last_processed_tracks.pop(user_id, None)
+            return
+
+        playback_key = (
+            track["id"],
+            track.get("timestamp"),
+        )
+
+        if last_processed_tracks.get(user_id) == playback_key:
+            return
+
+        result = process_current_track(user, db)
+
+        if result["status"] in ("queued", "already_queued"):
+            last_processed_tracks[user_id] = playback_key
+            print(f"User {user_id}: {result}")

@@ -19,13 +19,31 @@ from backend.models import Chain, User
 from backend.spotify_service import create_spotify_auth, get_spotify_user
 from backend.session_backend import PostgresSessionBackend
 
+import asyncio
+from contextlib import asynccontextmanager
+from backend.playback_monitor import monitor_user_playback
+
 
 load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    monitor_task = asyncio.create_task(monitor_user_playback(1))
+
+    try:
+        yield
+    finally:
+        monitor_task.cancel()
+        try:
+            await monitor_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title="Smart Shuffle API",
     description="Backend API for Smart Shuffle 2.0",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 

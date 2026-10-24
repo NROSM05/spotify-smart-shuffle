@@ -26,6 +26,7 @@ def get_current_track(user, db):
             artist["name"] for artist in track["artists"]
         ),
         "is_playing": playback["is_playing"],
+        "timestamp": playback.get("timestamp"),
         "progress_ms": playback["progress_ms"],
         "duration_ms": track["duration_ms"],
     }
