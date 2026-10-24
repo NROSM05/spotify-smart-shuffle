@@ -4,6 +4,9 @@ import json
 import os
 import secrets
 
+from backend.playback_service import process_current_track
+from backend.playback_service import find_matching_chain
+from backend.playback_service import get_current_track, queue_track
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -271,3 +274,65 @@ def delete_chain(
     db.commit()
 
     return {"message": "Chain deleted successfully!"}
+
+@app.get("/playback/current")
+def current_playback(
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    user = db.get(User, current_user_id)
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    track = get_current_track(user, db)
+
+    return {"track": track}
+
+class QueueTrackRequest(BaseModel):
+    track_id: str = Field(min_length=22, max_length=22)
+
+
+@app.post("/playback/queue")
+def add_track_to_queue(
+    data: QueueTrackRequest,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    user = db.get(User, current_user_id)
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return queue_track(user, db, data.track_id)
+
+@app.get("/playback/match")
+def match_current_track(
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    user = db.get(User, current_user_id)
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    track = get_current_track(user, db)
+
+    if track is None:
+        return {"track": None, "match": None}
+
+    match = find_matching_chain(current_user_id, track["id"], db)
+
+    return {"track": track, "match": match}
+
+@app.post("/playback/process")
+def process_playback(
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    user = db.get(User, current_user_id)
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return process_current_track(user, db)
